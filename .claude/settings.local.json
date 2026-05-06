@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Users/corinnehurtaux/flutter/bin/dart run *)",
+      "Bash(npm run *)",
+      "Bash(/Users/corinnehurtaux/flutter/bin/dart analyze *)"
+    ]
+  }
+}

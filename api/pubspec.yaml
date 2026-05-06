@@ -1,0 +1,23 @@
+name: brasserie_api
+description: API REST pour la Brasserie Terroir & Savoirs - BTS SIO E6
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  # Serveur HTTP
+  shelf: ^1.4.1
+  # Routeur pour organiser les routes par ressource
+  shelf_router: ^1.1.4
+  # Middleware CORS pour autoriser les requêtes depuis React
+  shelf_cors_headers: ^0.1.5
+  # Base de données SQLite (fichier local, parfait pour le BTS)
+  sqlite3: ^2.4.0
+  # Tokens JWT pour l'authentification
+  dart_jsonwebtoken: ^2.14.0
+  # Hachage des mots de passe
+  crypto: ^3.0.3
+  # Encodage/décodage JSON
+  convert: ^3.1.1
