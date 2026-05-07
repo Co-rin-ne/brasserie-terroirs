@@ -10,9 +10,9 @@ class Format {
 
   factory Format.fromMap(Map<String, dynamic> map) {
     return Format(
-      id: map['id'] as int?,
-      libelle: map['libelle'] as String,
-      contenance: (map['contenance'] as num).toDouble(),
+      id: map['id'] is int ? map['id'] as int : int.tryParse(map['id']?.toString() ?? ''),
+      libelle: map['libelle']?.toString() ?? '',
+      contenance: _toDouble(map['contenance']),
     );
   }
 
@@ -22,5 +22,11 @@ class Format {
       'libelle': libelle,
       'contenance': contenance,
     };
+  }
+
+  static double _toDouble(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
   }
 }

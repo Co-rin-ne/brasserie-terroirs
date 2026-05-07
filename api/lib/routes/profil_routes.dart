@@ -10,18 +10,25 @@ Router profilRouter() {
   final db = AppDatabase.instance.db;
 
   // GET /profil — infos de l'utilisateur connecté
-  router.get('/', (Request req) {
+  router.get('/', (Request req) async {
     final id = req.context['userId'] as int;
-    final rows = db.select(
+    final rows = await db.query(
       'SELECT id, nom, email, role FROM utilisateurs WHERE id = ?;',
       [id],
     );
     if (rows.isEmpty) {
-      return Response.notFound('{"erreur": "Utilisateur introuvable"}',
-          headers: {'content-type': 'application/json'});
+      return Response.notFound(
+        '{"erreur": "Utilisateur introuvable"}',
+        headers: {'content-type': 'application/json'},
+      );
     }
+    final r = rows.firstAsMap!;
     return Response.ok(
-      jsonEncode({'id': rows.first['id'], 'nom': rows.first['nom'], 'email': rows.first['email']}),
+      jsonEncode({
+        'id': r['id'],
+        'nom': r['nom']?.toString(),
+        'email': r['email']?.toString(),
+      }),
       headers: {'content-type': 'application/json'},
     );
   });
@@ -51,7 +58,7 @@ Router profilRouter() {
     }
 
     final hashAncien = AppDatabase.hashPassword(ancien);
-    final rows = db.select(
+    final rows = await db.query(
       'SELECT id FROM utilisateurs WHERE id = ? AND mot_de_passe = ?;',
       [id, hashAncien],
     );
@@ -62,7 +69,7 @@ Router profilRouter() {
       );
     }
 
-    db.execute(
+    await db.query(
       'UPDATE utilisateurs SET mot_de_passe = ? WHERE id = ?',
       [AppDatabase.hashPassword(nouveau), id],
     );
@@ -74,7 +81,7 @@ Router profilRouter() {
   });
 
   // DELETE /profil — supprimer son propre compte
-  router.delete('/', (Request req) {
+  router.delete('/', (Request req) async {
     final id = req.context['userId'] as int;
     final role = req.context['role'] as String;
 
@@ -86,7 +93,7 @@ Router profilRouter() {
       );
     }
 
-    db.execute('DELETE FROM utilisateurs WHERE id = ?', [id]);
+    await db.query('DELETE FROM utilisateurs WHERE id = ?', [id]);
     return Response(204);
   });
 

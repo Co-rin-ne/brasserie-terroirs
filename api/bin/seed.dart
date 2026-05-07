@@ -1,58 +1,134 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:mysql1/mysql1.dart';
 
 String _hash(String p) =>
     sha256.convert(utf8.encode('brasserie_sel_$p')).toString();
 
-void main() {
-  final db = sqlite3.open('brasserie.db');
-  db.execute('PRAGMA foreign_keys = OFF;');
+void main() async {
+  // ── Connexion à MariaDB ───────────────────────────────────────────────────
+  final settings = ConnectionSettings(
+    host: 'localhost',
+    port: 3306,
+    user: 'brasserie_user',
+    password: 'bts_brass',
+    db: 'brasserie_db',
+  );
+  final db = await MySqlConnection.connect(settings);
+  print('✓ Connexion MariaDB établie');
+
+  // ── Désactivation des contraintes (pour vider proprement) ────────────────
+  await db.query('SET FOREIGN_KEY_CHECKS = 0;');
 
   // ── Création des tables ───────────────────────────────────────────────────
-  db.execute('''CREATE TABLE IF NOT EXISTS types_produits (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT NOT NULL UNIQUE, description TEXT);''');
-  db.execute('''CREATE TABLE IF NOT EXISTS formats (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, libelle TEXT NOT NULL UNIQUE, contenance REAL NOT NULL);''');
-  db.execute('''CREATE TABLE IF NOT EXISTS produits (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT NOT NULL, description TEXT,
-    quantite_stock INTEGER NOT NULL DEFAULT 0, prix REAL NOT NULL, image_url TEXT,
-    id_type INTEGER NOT NULL REFERENCES types_produits(id),
-    id_format INTEGER NOT NULL REFERENCES formats(id));''');
-  db.execute('''CREATE TABLE IF NOT EXISTS utilisateurs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, nom TEXT NOT NULL,
-    email TEXT NOT NULL UNIQUE, mot_de_passe TEXT NOT NULL,
-    role TEXT NOT NULL DEFAULT 'client');''');
-  db.execute('''CREATE TABLE IF NOT EXISTS selections (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    id_client  INTEGER NOT NULL REFERENCES utilisateurs(id) ON DELETE CASCADE,
-    id_produit INTEGER NOT NULL REFERENCES produits(id)     ON DELETE CASCADE,
-    quantite INTEGER NOT NULL DEFAULT 1,
-    UNIQUE(id_client, id_produit));''');
+  await db.query('''
+    CREATE TABLE IF NOT EXISTS types_produits (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      nom VARCHAR(255) NOT NULL UNIQUE,
+      description TEXT
+    );
+  ''');
+
+  await db.query('''
+    CREATE TABLE IF NOT EXISTS formats (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      libelle VARCHAR(255) NOT NULL UNIQUE,
+      contenance DECIMAL(10,2) NOT NULL
+    );
+  ''');
+
+  await db.query('''
+    CREATE TABLE IF NOT EXISTS produits (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      nom VARCHAR(255) NOT NULL,
+      description TEXT,
+      quantite_stock INT NOT NULL DEFAULT 0,
+      prix DECIMAL(10,2) NOT NULL,
+      image_url VARCHAR(500),
+      id_type INT NOT NULL,
+      id_format INT NOT NULL,
+      FOREIGN KEY (id_type) REFERENCES types_produits(id),
+      FOREIGN KEY (id_format) REFERENCES formats(id)
+    );
+  ''');
+
+  await db.query('''
+    CREATE TABLE IF NOT EXISTS utilisateurs (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      nom VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      mot_de_passe VARCHAR(255) NOT NULL,
+      role VARCHAR(50) NOT NULL DEFAULT 'client'
+    );
+  ''');
+
+  await db.query('''
+    CREATE TABLE IF NOT EXISTS selections (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      id_client INT NOT NULL,
+      id_produit INT NOT NULL,
+      quantite INT NOT NULL DEFAULT 1,
+      UNIQUE KEY unique_selection (id_client, id_produit),
+      FOREIGN KEY (id_client) REFERENCES utilisateurs(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_produit) REFERENCES produits(id) ON DELETE CASCADE
+    );
+  ''');
+
+  await db.query('''
+    CREATE TABLE IF NOT EXISTS commandes (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      id_client INT NOT NULL,
+      date_commande DATETIME DEFAULT CURRENT_TIMESTAMP,
+      statut VARCHAR(50) DEFAULT 'en_attente',
+      FOREIGN KEY (id_client) REFERENCES utilisateurs(id)
+    );
+  ''');
+
+  await db.query('''
+    CREATE TABLE IF NOT EXISTS lignes_commande (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      id_commande INT NOT NULL,
+      id_produit INT NOT NULL,
+      quantite INT NOT NULL,
+      prix_unitaire DECIMAL(10,2) NOT NULL,
+      FOREIGN KEY (id_commande) REFERENCES commandes(id) ON DELETE CASCADE,
+      FOREIGN KEY (id_produit) REFERENCES produits(id)
+    );
+  ''');
 
   // ── Nettoyage ─────────────────────────────────────────────────────────────
-  print('Nettoyage...');
-  db.execute('DELETE FROM selections;');
-  db.execute('DELETE FROM produits;');
-  db.execute('DELETE FROM formats;');
-  db.execute('DELETE FROM types_produits;');
-  db.execute('DELETE FROM utilisateurs;');
-  db.execute("DELETE FROM sqlite_sequence WHERE name IN "
-      "('produits','formats','types_produits','utilisateurs','selections');");
-  db.execute('PRAGMA foreign_keys = ON;');
+  print('Nettoyage des tables...');
+  await db.query('DELETE FROM lignes_commande;');
+  await db.query('DELETE FROM commandes;');
+  await db.query('DELETE FROM selections;');
+  await db.query('DELETE FROM produits;');
+  await db.query('DELETE FROM formats;');
+  await db.query('DELETE FROM types_produits;');
+  await db.query('DELETE FROM utilisateurs;');
+
+  // Reset des compteurs auto-increment
+  await db.query('ALTER TABLE types_produits AUTO_INCREMENT = 1;');
+  await db.query('ALTER TABLE formats AUTO_INCREMENT = 1;');
+  await db.query('ALTER TABLE produits AUTO_INCREMENT = 1;');
+  await db.query('ALTER TABLE utilisateurs AUTO_INCREMENT = 1;');
+  await db.query('ALTER TABLE selections AUTO_INCREMENT = 1;');
+  await db.query('ALTER TABLE commandes AUTO_INCREMENT = 1;');
+  await db.query('ALTER TABLE lignes_commande AUTO_INCREMENT = 1;');
+
+  await db.query('SET FOREIGN_KEY_CHECKS = 1;');
 
   // ── Utilisateurs ──────────────────────────────────────────────────────────
   print('Insertion des utilisateurs...');
-  db.execute(
-    "INSERT INTO utilisateurs (nom, email, mot_de_passe, role) VALUES (?,?,?,'admin')",
+  await db.query(
+    "INSERT INTO utilisateurs (nom, email, mot_de_passe, role) VALUES (?, ?, ?, 'admin')",
     ['Administrateur', 'admin@brasserie.fr', _hash('admin1234')],
   );
-  db.execute(
-    "INSERT INTO utilisateurs (nom, email, mot_de_passe, role) VALUES (?,?,?,'client')",
+  await db.query(
+    "INSERT INTO utilisateurs (nom, email, mot_de_passe, role) VALUES (?, ?, ?, 'client')",
     ['Marie Dupont', 'marie@example.fr', _hash('client1234')],
   );
-  db.execute(
-    "INSERT INTO utilisateurs (nom, email, mot_de_passe, role) VALUES (?,?,?,'client')",
+  await db.query(
+    "INSERT INTO utilisateurs (nom, email, mot_de_passe, role) VALUES (?, ?, ?, 'client')",
     ['Paul Martin', 'paul@example.fr', _hash('client1234')],
   );
   print('  ✓ admin@brasserie.fr / admin1234');
@@ -61,23 +137,46 @@ void main() {
 
   // ── Types ─────────────────────────────────────────────────────────────────
   print('Insertion des types...');
-  db.execute("INSERT INTO types_produits (nom, description) VALUES (?,?)",
-      ['Bière', 'Boissons brassées à base de malt, houblon et eau.']);
-  db.execute("INSERT INTO types_produits (nom, description) VALUES (?,?)",
-      ['Spiritueux', 'Alcools distillés et vieillis en fûts : whisky, gin, etc.']);
-  final idBiere = 1;
-  final idSpiritueux = 2;
+  final biereResult = await db.query(
+    "INSERT INTO types_produits (nom, description) VALUES (?, ?)",
+    ['Bière', 'Boissons brassées à base de malt, houblon et eau.'],
+  );
+  final idBiere = biereResult.insertId;
+
+  final spiritResult = await db.query(
+    "INSERT INTO types_produits (nom, description) VALUES (?, ?)",
+    ['Spiritueux', 'Alcools distillés et vieillis en fûts : whisky, gin, etc.'],
+  );
+  final idSpiritueux = spiritResult.insertId;
 
   // ── Formats ───────────────────────────────────────────────────────────────
   print('Insertion des formats...');
-  db.execute("INSERT INTO formats (libelle, contenance) VALUES (?,?)", ['Bouteille 33cl', 0.33]);
-  final id33 = db.lastInsertRowId;
-  db.execute("INSERT INTO formats (libelle, contenance) VALUES (?,?)", ['Bouteille 50cl', 0.50]);
-  final id50 = db.lastInsertRowId;
-  db.execute("INSERT INTO formats (libelle, contenance) VALUES (?,?)", ['Bouteille 75cl', 0.75]);
-  final id75 = db.lastInsertRowId;
-  db.execute("INSERT INTO formats (libelle, contenance) VALUES (?,?)", ['Fût 30L', 30.0]);
-  db.execute("INSERT INTO formats (libelle, contenance) VALUES (?,?)", ['Fût 50L', 50.0]);
+  final r33 = await db.query(
+    "INSERT INTO formats (libelle, contenance) VALUES (?, ?)",
+    ['Bouteille 33cl', 0.33],
+  );
+  final id33 = r33.insertId;
+
+  final r50 = await db.query(
+    "INSERT INTO formats (libelle, contenance) VALUES (?, ?)",
+    ['Bouteille 50cl', 0.50],
+  );
+  final id50 = r50.insertId;
+
+  final r75 = await db.query(
+    "INSERT INTO formats (libelle, contenance) VALUES (?, ?)",
+    ['Bouteille 75cl', 0.75],
+  );
+  final id75 = r75.insertId;
+
+  await db.query(
+    "INSERT INTO formats (libelle, contenance) VALUES (?, ?)",
+    ['Fût 30L', 30.0],
+  );
+  await db.query(
+    "INSERT INTO formats (libelle, contenance) VALUES (?, ?)",
+    ['Fût 50L', 50.0],
+  );
 
   // ── Produits ──────────────────────────────────────────────────────────────
   print('Insertion des produits...');
@@ -100,13 +199,13 @@ void main() {
   ];
 
   for (final p in produits) {
-    db.execute(
-      'INSERT INTO produits (nom, description, quantite_stock, prix, image_url, id_type, id_format) VALUES (?,?,?,?,?,?,?)',
+    await db.query(
+      'INSERT INTO produits (nom, description, quantite_stock, prix, image_url, id_type, id_format) VALUES (?, ?, ?, ?, ?, ?, ?)',
       p,
     );
     print('  ✓ ${p[0]}');
   }
 
-  db.dispose();
-  print('\nBase de données peuplée avec succès !');
+  await db.close();
+  print('\n✓ Base de données peuplée avec succès !');
 }

@@ -15,8 +15,9 @@ import '../lib/routes/selection_routes.dart';
 import '../lib/routes/profil_routes.dart';
 
 void main() async {
-  AppDatabase.instance.init();
-  print('✓ Base de données initialisée');
+  // Initialisation asynchrone (connexion à MariaDB + création des tables)
+  await AppDatabase.instance.init();
+  print('✓ Base de données MariaDB connectée');
 
   final router = Router();
 
@@ -43,7 +44,7 @@ void main() async {
   final handler = Pipeline()
       .addMiddleware(logRequests())
       .addMiddleware(corsHeaders(headers: {
-        ACCESS_CONTROL_ALLOW_ORIGIN: 'http://localhost:5173',
+        ACCESS_CONTROL_ALLOW_ORIGIN: '*',
         ACCESS_CONTROL_ALLOW_METHODS: 'GET, POST, PUT, DELETE, OPTIONS',
         ACCESS_CONTROL_ALLOW_HEADERS: 'Content-Type, Authorization',
       }))
@@ -55,8 +56,11 @@ void main() async {
   print('✓ Serveur sur http://localhost:${server.port}\n');
   print('── Public ──────────────────────────────');
   print('  POST /auth/login');
+  print('  POST /auth/register');
   print('── Admin (JWT + role=admin) ────────────');
   print('  CRUD /types, /formats, /produits, /clients');
   print('── Client (JWT) ────────────────────────');
   print('  GET/POST/PUT/DELETE /selection');
+  print('  POST /selection/valider');
+  print('  GET/PUT/DELETE /profil');
 }

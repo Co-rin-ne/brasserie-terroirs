@@ -18,10 +18,11 @@ Router typeProduitRouter() {
 
   // ─── GET /types ─────────────────────────────────────────────────────────────
   // Retourne la liste de tous les types de produits
-  router.get('/', (Request req) {
-    final rows = db.select('SELECT * FROM types_produits ORDER BY nom;');
-    // rows est une List<Row> → on la convertit en List<Map> → puis en JSON
-    final types = rows.map((r) => TypeProduit.fromMap(r).toMap()).toList();
+  router.get('/', (Request req) async {
+    final rows = await db.query('SELECT * FROM types_produits ORDER BY nom;');
+    final types = rows.toMapList()
+        .map((r) => TypeProduit.fromMap(r).toMap())
+        .toList();
     return Response.ok(
       jsonEncode(types),
       headers: {'content-type': 'application/json'},
@@ -30,8 +31,8 @@ Router typeProduitRouter() {
 
   // ─── GET /types/:id ──────────────────────────────────────────────────────────
   // Retourne un seul type par son identifiant
-  router.get('/<id>', (Request req, String id) {
-    final rows = db.select(
+  router.get('/<id>', (Request req, String id) async {
+    final rows = await db.query(
       'SELECT * FROM types_produits WHERE id = ?;',
       [int.parse(id)],
     );
@@ -42,7 +43,7 @@ Router typeProduitRouter() {
       );
     }
     return Response.ok(
-      jsonEncode(TypeProduit.fromMap(rows.first).toMap()),
+      jsonEncode(TypeProduit.fromMap(rows.firstAsMap!).toMap()),
       headers: {'content-type': 'application/json'},
     );
   });
@@ -70,14 +71,14 @@ Router typeProduitRouter() {
       );
     }
 
-    db.execute(
+    final result = await db.query(
       'INSERT INTO types_produits (nom, description) VALUES (?, ?)',
       [nom.trim(), data['description']],
     );
 
-    // lastInsertRowId : l'id auto-incrémenté du nouvel enregistrement
-    final newId = db.lastInsertRowId;
-    final rows = db.select(
+    // insertId : l'id auto-incrémenté du nouvel enregistrement
+    final newId = result.insertId;
+    final rows = await db.query(
       'SELECT * FROM types_produits WHERE id = ?;',
       [newId],
     );
@@ -85,7 +86,7 @@ Router typeProduitRouter() {
     // 201 Created avec le nouvel objet
     return Response(
       201,
-      body: jsonEncode(TypeProduit.fromMap(rows.first).toMap()),
+      body: jsonEncode(TypeProduit.fromMap(rows.firstAsMap!).toMap()),
       headers: {'content-type': 'application/json'},
     );
   });
@@ -113,7 +114,7 @@ Router typeProduitRouter() {
       );
     }
 
-    final result = db.select(
+    final result = await db.query(
       'SELECT id FROM types_produits WHERE id = ?;',
       [int.parse(id)],
     );
@@ -124,26 +125,26 @@ Router typeProduitRouter() {
       );
     }
 
-    db.execute(
+    await db.query(
       'UPDATE types_produits SET nom = ?, description = ? WHERE id = ?',
       [nom.trim(), data['description'], int.parse(id)],
     );
 
-    final rows = db.select(
+    final rows = await db.query(
       'SELECT * FROM types_produits WHERE id = ?;',
       [int.parse(id)],
     );
     return Response.ok(
-      jsonEncode(TypeProduit.fromMap(rows.first).toMap()),
+      jsonEncode(TypeProduit.fromMap(rows.firstAsMap!).toMap()),
       headers: {'content-type': 'application/json'},
     );
   });
 
   // ─── DELETE /types/:id ───────────────────────────────────────────────────────
   // Supprime un type (échoue si des produits y sont rattachés)
-  router.delete('/<id>', (Request req, String id) {
+  router.delete('/<id>', (Request req, String id) async {
     if (req.context['role'] != 'admin') return _forbidden();
-    final result = db.select(
+    final result = await db.query(
       'SELECT id FROM types_produits WHERE id = ?;',
       [int.parse(id)],
     );
@@ -155,12 +156,12 @@ Router typeProduitRouter() {
     }
 
     try {
-      db.execute(
+      await db.query(
         'DELETE FROM types_produits WHERE id = ?',
         [int.parse(id)],
       );
     } catch (e) {
-      // SQLite lève une erreur si des produits utilisent ce type (FOREIGN KEY)
+      // MariaDB lève une erreur si des produits utilisent ce type (FOREIGN KEY)
       return Response(
         409, // Conflict
         body: '{"erreur": "Impossible de supprimer : des produits utilisent ce type"}',

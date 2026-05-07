@@ -15,9 +15,9 @@ Router produitRouter() {
   final db = AppDatabase.instance.db;
 
   // GET /produits — liste avec jointures pour avoir les noms (pas juste les ids)
-  router.get('/', (Request req) {
+  router.get('/', (Request req) async {
     // On joint les 3 tables pour retourner les infos complètes
-    final rows = db.select('''
+    final rows = await db.query('''
       SELECT
         p.id, p.nom, p.description, p.quantite_stock, p.prix, p.image_url,
         p.id_type, tp.nom as type_nom,
@@ -28,12 +28,12 @@ Router produitRouter() {
       ORDER BY p.nom;
     ''');
 
-    final produits = rows.map((r) {
+    final produits = rows.toMapList().map((r) {
       final map = Produit.fromMap(r).toMap();
       // On enrichit la réponse avec les noms (utile pour l'affichage React)
       map['type_nom'] = r['type_nom'];
       map['format_libelle'] = r['format_libelle'];
-      map['contenance'] = r['contenance'];
+      map['contenance'] = toDouble(r['contenance']);
       return map;
     }).toList();
 
@@ -44,8 +44,8 @@ Router produitRouter() {
   });
 
   // GET /produits/:id
-  router.get('/<id>', (Request req, String id) {
-    final rows = db.select('''
+  router.get('/<id>', (Request req, String id) async {
+    final rows = await db.query('''
       SELECT
         p.id, p.nom, p.description, p.quantite_stock, p.prix, p.image_url,
         p.id_type, tp.nom as type_nom,
@@ -63,10 +63,11 @@ Router produitRouter() {
       );
     }
 
-    final map = Produit.fromMap(rows.first).toMap();
-    map['type_nom'] = rows.first['type_nom'];
-    map['format_libelle'] = rows.first['format_libelle'];
-    map['contenance'] = rows.first['contenance'];
+    final r = rows.firstAsMap!;
+    final map = Produit.fromMap(r).toMap();
+    map['type_nom'] = r['type_nom'];
+    map['format_libelle'] = r['format_libelle'];
+    map['contenance'] = toDouble(r['contenance']);
 
     return Response.ok(
       jsonEncode(map),
@@ -103,7 +104,7 @@ Router produitRouter() {
       );
     }
 
-    db.execute(
+    final result = await db.query(
       '''INSERT INTO produits (nom, description, quantite_stock, prix, image_url, id_type, id_format)
          VALUES (?, ?, ?, ?, ?, ?, ?)''',
       [
@@ -117,9 +118,9 @@ Router produitRouter() {
       ],
     );
 
-    final newId = db.lastInsertRowId;
+    final newId = result.insertId;
     // On réutilise la même requête GET pour avoir les jointures
-    final rows = db.select('''
+    final rows = await db.query('''
       SELECT p.id, p.nom, p.description, p.quantite_stock, p.prix, p.image_url,
              p.id_type, p.id_format, tp.nom as type_nom, f.libelle as format_libelle, f.contenance
       FROM produits p
@@ -128,10 +129,11 @@ Router produitRouter() {
       WHERE p.id = ?;
     ''', [newId]);
 
-    final map = Produit.fromMap(rows.first).toMap();
-    map['type_nom'] = rows.first['type_nom'];
-    map['format_libelle'] = rows.first['format_libelle'];
-    map['contenance'] = rows.first['contenance'];
+    final r = rows.firstAsMap!;
+    final map = Produit.fromMap(r).toMap();
+    map['type_nom'] = r['type_nom'];
+    map['format_libelle'] = r['format_libelle'];
+    map['contenance'] = toDouble(r['contenance']);
 
     return Response(
       201,
@@ -154,7 +156,7 @@ Router produitRouter() {
       );
     }
 
-    final existing = db.select(
+    final existing = await db.query(
       'SELECT id FROM produits WHERE id = ?;',
       [int.parse(id)],
     );
@@ -178,7 +180,7 @@ Router produitRouter() {
       );
     }
 
-    db.execute(
+    await db.query(
       '''UPDATE produits
          SET nom = ?, description = ?, quantite_stock = ?, prix = ?, image_url = ?, id_type = ?, id_format = ?
          WHERE id = ?''',
@@ -194,7 +196,7 @@ Router produitRouter() {
       ],
     );
 
-    final rows = db.select('''
+    final rows = await db.query('''
       SELECT p.id, p.nom, p.description, p.quantite_stock, p.prix, p.image_url,
              p.id_type, p.id_format, tp.nom as type_nom, f.libelle as format_libelle, f.contenance
       FROM produits p
@@ -203,10 +205,11 @@ Router produitRouter() {
       WHERE p.id = ?;
     ''', [int.parse(id)]);
 
-    final map = Produit.fromMap(rows.first).toMap();
-    map['type_nom'] = rows.first['type_nom'];
-    map['format_libelle'] = rows.first['format_libelle'];
-    map['contenance'] = rows.first['contenance'];
+    final r = rows.firstAsMap!;
+    final map = Produit.fromMap(r).toMap();
+    map['type_nom'] = r['type_nom'];
+    map['format_libelle'] = r['format_libelle'];
+    map['contenance'] = toDouble(r['contenance']);
 
     return Response.ok(
       jsonEncode(map),
@@ -215,9 +218,9 @@ Router produitRouter() {
   });
 
   // DELETE /produits/:id (admin uniquement)
-  router.delete('/<id>', (Request req, String id) {
+  router.delete('/<id>', (Request req, String id) async {
     if (req.context['role'] != 'admin') return _forbiddenAdmin();
-    final existing = db.select(
+    final existing = await db.query(
       'SELECT id FROM produits WHERE id = ?;',
       [int.parse(id)],
     );
@@ -228,7 +231,7 @@ Router produitRouter() {
       );
     }
 
-    db.execute('DELETE FROM produits WHERE id = ?', [int.parse(id)]);
+    await db.query('DELETE FROM produits WHERE id = ?', [int.parse(id)]);
     return Response(204);
   });
 

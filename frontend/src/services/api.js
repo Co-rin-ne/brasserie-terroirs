@@ -1,4 +1,6 @@
-const BASE_URL = 'http://localhost:8080';
+// En dev : on appelle directement l'API (ex: http://localhost:8080)
+// En prod : on utilise un chemin relatif /api proxifié par Apache vers Dart
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 function getToken() { return localStorage.getItem('token'); }
 

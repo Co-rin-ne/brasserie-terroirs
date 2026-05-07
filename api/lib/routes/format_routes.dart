@@ -14,9 +14,11 @@ Router formatRouter() {
   final db = AppDatabase.instance.db;
 
   // GET /formats — liste tous les formats
-  router.get('/', (Request req) {
-    final rows = db.select('SELECT * FROM formats ORDER BY libelle;');
-    final formats = rows.map((r) => Format.fromMap(r).toMap()).toList();
+  router.get('/', (Request req) async {
+    final rows = await db.query('SELECT * FROM formats ORDER BY libelle;');
+    final formats = rows.toMapList()
+        .map((r) => Format.fromMap(r).toMap())
+        .toList();
     return Response.ok(
       jsonEncode(formats),
       headers: {'content-type': 'application/json'},
@@ -24,8 +26,8 @@ Router formatRouter() {
   });
 
   // GET /formats/:id
-  router.get('/<id>', (Request req, String id) {
-    final rows = db.select(
+  router.get('/<id>', (Request req, String id) async {
+    final rows = await db.query(
       'SELECT * FROM formats WHERE id = ?;',
       [int.parse(id)],
     );
@@ -36,7 +38,7 @@ Router formatRouter() {
       );
     }
     return Response.ok(
-      jsonEncode(Format.fromMap(rows.first).toMap()),
+      jsonEncode(Format.fromMap(rows.firstAsMap!).toMap()),
       headers: {'content-type': 'application/json'},
     );
   });
@@ -64,18 +66,18 @@ Router formatRouter() {
       );
     }
 
-    db.execute(
+    final result = await db.query(
       'INSERT INTO formats (libelle, contenance) VALUES (?, ?)',
       [libelle.trim(), (contenance as num).toDouble()],
     );
 
-    final rows = db.select(
+    final rows = await db.query(
       'SELECT * FROM formats WHERE id = ?;',
-      [db.lastInsertRowId],
+      [result.insertId],
     );
     return Response(
       201,
-      body: jsonEncode(Format.fromMap(rows.first).toMap()),
+      body: jsonEncode(Format.fromMap(rows.firstAsMap!).toMap()),
       headers: {'content-type': 'application/json'},
     );
   });
@@ -103,7 +105,7 @@ Router formatRouter() {
       );
     }
 
-    final existing = db.select(
+    final existing = await db.query(
       'SELECT id FROM formats WHERE id = ?;',
       [int.parse(id)],
     );
@@ -114,25 +116,25 @@ Router formatRouter() {
       );
     }
 
-    db.execute(
+    await db.query(
       'UPDATE formats SET libelle = ?, contenance = ? WHERE id = ?',
       [libelle.trim(), (contenance as num).toDouble(), int.parse(id)],
     );
 
-    final rows = db.select(
+    final rows = await db.query(
       'SELECT * FROM formats WHERE id = ?;',
       [int.parse(id)],
     );
     return Response.ok(
-      jsonEncode(Format.fromMap(rows.first).toMap()),
+      jsonEncode(Format.fromMap(rows.firstAsMap!).toMap()),
       headers: {'content-type': 'application/json'},
     );
   });
 
   // DELETE /formats/:id
-  router.delete('/<id>', (Request req, String id) {
+  router.delete('/<id>', (Request req, String id) async {
     if (req.context['role'] != 'admin') return _forbidden();
-    final existing = db.select(
+    final existing = await db.query(
       'SELECT id FROM formats WHERE id = ?;',
       [int.parse(id)],
     );
@@ -144,7 +146,7 @@ Router formatRouter() {
     }
 
     try {
-      db.execute('DELETE FROM formats WHERE id = ?', [int.parse(id)]);
+      await db.query('DELETE FROM formats WHERE id = ?', [int.parse(id)]);
     } catch (e) {
       return Response(
         409,

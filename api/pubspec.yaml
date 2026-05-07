@@ -13,8 +13,8 @@ dependencies:
   shelf_router: ^1.1.4
   # Middleware CORS pour autoriser les requêtes depuis React
   shelf_cors_headers: ^0.1.5
-  # Base de données SQLite (fichier local, parfait pour le BTS)
-  sqlite3: ^2.4.0
+  # Base de données MySQL
+  mysql1: ^0.20.0
   # Tokens JWT pour l'authentification
   dart_jsonwebtoken: ^2.14.0
   # Hachage des mots de passe

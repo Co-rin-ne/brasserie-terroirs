@@ -13,11 +13,15 @@ Router utilisateurRouter() {
   final db = AppDatabase.instance.db;
 
   // GET /clients — liste tous les clients
-  router.get('/', (Request req) {
-    final rows = db.select(
+  router.get('/', (Request req) async {
+    final rows = await db.query(
       "SELECT id, nom, email FROM utilisateurs WHERE role = 'client' ORDER BY nom;",
     );
-    final clients = rows.map((r) => {'id': r['id'], 'nom': r['nom'], 'email': r['email']}).toList();
+    final clients = rows.toMapList().map((r) => {
+      'id': r['id'],
+      'nom': r['nom']?.toString(),
+      'email': r['email']?.toString(),
+    }).toList();
     return Response.ok(
       jsonEncode(clients),
       headers: {'content-type': 'application/json'},
@@ -51,7 +55,7 @@ Router utilisateurRouter() {
       );
     }
 
-    final existing = db.select(
+    final existing = await db.query(
       'SELECT id FROM utilisateurs WHERE email = ?;',
       [email.trim()],
     );
@@ -64,22 +68,26 @@ Router utilisateurRouter() {
     }
 
     final hash = AppDatabase.hashPassword(motDePasse);
-    db.execute(
+    final result = await db.query(
       "INSERT INTO utilisateurs (nom, email, mot_de_passe, role) VALUES (?, ?, ?, 'client')",
       [nom.trim(), email.trim(), hash],
     );
 
     return Response(
       201,
-      body: jsonEncode({'id': db.lastInsertRowId, 'nom': nom.trim(), 'email': email.trim()}),
+      body: jsonEncode({
+        'id': result.insertId,
+        'nom': nom.trim(),
+        'email': email.trim(),
+      }),
       headers: {'content-type': 'application/json'},
     );
   });
 
   // DELETE /clients/:id — supprime un client et sa sélection (CASCADE)
-  router.delete('/<id>', (Request req, String id) {
+  router.delete('/<id>', (Request req, String id) async {
     if (req.context['role'] != 'admin') return _forbidden();
-    final existing = db.select(
+    final existing = await db.query(
       "SELECT id FROM utilisateurs WHERE id = ? AND role = 'client';",
       [int.parse(id)],
     );
@@ -89,7 +97,7 @@ Router utilisateurRouter() {
         headers: {'content-type': 'application/json'},
       );
     }
-    db.execute('DELETE FROM utilisateurs WHERE id = ?', [int.parse(id)]);
+    await db.query('DELETE FROM utilisateurs WHERE id = ?', [int.parse(id)]);
     return Response(204);
   });
 

@@ -32,7 +32,7 @@ Router authRouter() {
     final hash = AppDatabase.hashPassword(motDePasse);
     final db = AppDatabase.instance.db;
 
-    final rows = db.select(
+    final rows = await db.query(
       'SELECT id, nom, role FROM utilisateurs WHERE email = ? AND mot_de_passe = ?',
       [email, hash],
     );
@@ -44,15 +44,15 @@ Router authRouter() {
       );
     }
 
-    final user = rows.first;
-    final token = genererToken(user['id'] as int, user['role'] as String);
+    final user = rows.first.fields;
+    final token = genererToken(user['id'] as int, user['role'].toString());
 
     // On retourne le token ET le rôle pour que le frontend sache quelle interface afficher
     return Response.ok(
       jsonEncode({
         'token': token,
-        'role': user['role'],
-        'nom': user['nom'],
+        'role': user['role'].toString(),
+        'nom': user['nom'].toString(),
       }),
       headers: {'content-type': 'application/json'},
     );
@@ -85,7 +85,7 @@ Router authRouter() {
     }
 
     final db = AppDatabase.instance.db;
-    final existing = db.select(
+    final existing = await db.query(
       'SELECT id FROM utilisateurs WHERE email = ?;',
       [email.trim()],
     );
@@ -97,7 +97,7 @@ Router authRouter() {
     }
 
     final hash = AppDatabase.hashPassword(motDePasse);
-    db.execute(
+    await db.query(
       "INSERT INTO utilisateurs (nom, email, mot_de_passe, role) VALUES (?, ?, ?, 'client')",
       [nom.trim(), email.trim(), hash],
     );

@@ -9,13 +9,13 @@ class TypeProduit {
 
   TypeProduit({this.id, required this.nom, this.description});
 
-  // fromMap : convertit une ligne SQLite (Map) → objet Dart
+  // fromMap : convertit une ligne MySQL (Map) → objet Dart
   // Utilisé quand on lit depuis la BDD
   factory TypeProduit.fromMap(Map<String, dynamic> map) {
     return TypeProduit(
-      id: map['id'] as int?,
-      nom: map['nom'] as String,
-      description: map['description'] as String?,
+      id: map['id'] is int ? map['id'] as int : int.tryParse(map['id']?.toString() ?? ''),
+      nom: map['nom']?.toString() ?? '',
+      description: map['description']?.toString(),
     );
   }
 

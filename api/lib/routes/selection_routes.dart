@@ -11,10 +11,10 @@ Router selectionRouter() {
   final db = AppDatabase.instance.db;
 
   // GET /selection — retourne tous les articles sélectionnés par le client connecté
-  router.get('/', (Request req) {
+  router.get('/', (Request req) async {
     final idClient = req.context['userId'] as int;
 
-    final rows = db.select('''
+    final rows = await db.query('''
       SELECT
         s.id, s.quantite,
         p.id as id_produit, p.nom, p.prix, p.image_url,
@@ -28,16 +28,22 @@ Router selectionRouter() {
       ORDER BY p.nom;
     ''', [idClient]);
 
-    final items = rows.map((r) => {
-      'id': r['id'],
-      'quantite': r['quantite'],
-      'id_produit': r['id_produit'],
-      'nom': r['nom'],
-      'prix': r['prix'],
-      'image_url': r['image_url'],
-      'type_nom': r['type_nom'],
-      'format_libelle': r['format_libelle'],
-      'sous_total': (r['prix'] as num) * (r['quantite'] as int),
+    final items = rows.toMapList().map((r) {
+      final prix = toDouble(r['prix']);
+      final quantite = (r['quantite'] is int)
+          ? r['quantite'] as int
+          : int.tryParse(r['quantite']?.toString() ?? '0') ?? 0;
+      return {
+        'id': r['id'],
+        'quantite': quantite,
+        'id_produit': r['id_produit'],
+        'nom': r['nom']?.toString(),
+        'prix': prix,
+        'image_url': r['image_url']?.toString(),
+        'type_nom': r['type_nom']?.toString(),
+        'format_libelle': r['format_libelle']?.toString(),
+        'sous_total': prix * quantite,
+      };
     }).toList();
 
     return Response.ok(
@@ -71,7 +77,10 @@ Router selectionRouter() {
     }
 
     // Vérifie que le produit existe
-    final produit = db.select('SELECT id FROM produits WHERE id = ?;', [idProduit]);
+    final produit = await db.query(
+      'SELECT id FROM produits WHERE id = ?;',
+      [idProduit],
+    );
     if (produit.isEmpty) {
       return Response.notFound(
         '{"erreur": "Produit introuvable"}',
@@ -79,11 +88,12 @@ Router selectionRouter() {
       );
     }
 
-    // INSERT OR REPLACE : si le produit est déjà dans la sélection, on met à jour la quantité
-    db.execute('''
+    // ON DUPLICATE KEY UPDATE (MySQL/MariaDB) :
+    // si le produit est déjà dans la sélection, on incrémente la quantité
+    await db.query('''
       INSERT INTO selections (id_client, id_produit, quantite)
       VALUES (?, ?, ?)
-      ON CONFLICT(id_client, id_produit) DO UPDATE SET quantite = quantite + excluded.quantite;
+      ON DUPLICATE KEY UPDATE quantite = quantite + VALUES(quantite);
     ''', [idClient, idProduit, quantite]);
 
     return Response(201,
@@ -115,7 +125,7 @@ Router selectionRouter() {
     }
 
     // Vérifie que la ligne appartient bien à ce client
-    final existing = db.select(
+    final existing = await db.query(
       'SELECT id FROM selections WHERE id = ? AND id_client = ?;',
       [int.parse(id), idClient],
     );
@@ -126,7 +136,7 @@ Router selectionRouter() {
       );
     }
 
-    db.execute(
+    await db.query(
       'UPDATE selections SET quantite = ? WHERE id = ? AND id_client = ?',
       [quantite, int.parse(id), idClient],
     );
@@ -138,10 +148,10 @@ Router selectionRouter() {
   });
 
   // DELETE /selection/:id — supprime un article de la sélection
-  router.delete('/<id>', (Request req, String id) {
+  router.delete('/<id>', (Request req, String id) async {
     final idClient = req.context['userId'] as int;
 
-    final existing = db.select(
+    final existing = await db.query(
       'SELECT id FROM selections WHERE id = ? AND id_client = ?;',
       [int.parse(id), idClient],
     );
@@ -152,7 +162,7 @@ Router selectionRouter() {
       );
     }
 
-    db.execute(
+    await db.query(
       'DELETE FROM selections WHERE id = ? AND id_client = ?',
       [int.parse(id), idClient],
     );
@@ -160,10 +170,10 @@ Router selectionRouter() {
   });
 
   // POST /selection/valider — transforme le panier en commande et le vide
-  router.post('/valider', (Request req) {
+  router.post('/valider', (Request req) async {
     final idClient = req.context['userId'] as int;
 
-    final items = db.select('''
+    final items = await db.query('''
       SELECT s.id_produit, s.quantite, p.prix
       FROM selections s
       JOIN produits p ON p.id = s.id_produit
@@ -178,25 +188,29 @@ Router selectionRouter() {
     }
 
     // Crée la commande
-    db.execute(
+    final commande = await db.query(
       "INSERT INTO commandes (id_client, statut) VALUES (?, 'en_attente')",
       [idClient],
     );
-    final idCommande = db.lastInsertRowId;
+    final idCommande = commande.insertId;
 
     // Copie chaque ligne du panier dans lignes_commande
     for (final item in items) {
-      db.execute(
+      final m = item.fields;
+      await db.query(
         'INSERT INTO lignes_commande (id_commande, id_produit, quantite, prix_unitaire) VALUES (?, ?, ?, ?)',
-        [idCommande, item['id_produit'], item['quantite'], item['prix']],
+        [idCommande, m['id_produit'], m['quantite'], toDouble(m['prix'])],
       );
     }
 
     // Vide le panier
-    db.execute('DELETE FROM selections WHERE id_client = ?', [idClient]);
+    await db.query('DELETE FROM selections WHERE id_client = ?', [idClient]);
 
     return Response(201,
-      body: jsonEncode({'message': 'Réservation envoyée avec succès', 'id_commande': idCommande}),
+      body: jsonEncode({
+        'message': 'Réservation envoyée avec succès',
+        'id_commande': idCommande,
+      }),
       headers: {'content-type': 'application/json'},
     );
   });

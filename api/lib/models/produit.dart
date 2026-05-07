@@ -21,14 +21,20 @@ class Produit {
 
   factory Produit.fromMap(Map<String, dynamic> map) {
     return Produit(
-      id: map['id'] as int?,
-      nom: map['nom'] as String,
-      description: map['description'] as String?,
-      quantiteStock: map['quantite_stock'] as int,
-      prix: (map['prix'] as num).toDouble(),
-      imageUrl: map['image_url'] as String?,
-      idType: map['id_type'] as int,
-      idFormat: map['id_format'] as int,
+      id: map['id'] is int ? map['id'] as int : int.tryParse(map['id']?.toString() ?? ''),
+      nom: map['nom']?.toString() ?? '',
+      description: map['description']?.toString(),
+      quantiteStock: map['quantite_stock'] is int
+          ? map['quantite_stock'] as int
+          : int.tryParse(map['quantite_stock']?.toString() ?? '0') ?? 0,
+      prix: _toDouble(map['prix']),
+      imageUrl: map['image_url']?.toString(),
+      idType: map['id_type'] is int
+          ? map['id_type'] as int
+          : int.tryParse(map['id_type']?.toString() ?? '0') ?? 0,
+      idFormat: map['id_format'] is int
+          ? map['id_format'] as int
+          : int.tryParse(map['id_format']?.toString() ?? '0') ?? 0,
     );
   }
 
@@ -43,5 +49,11 @@ class Produit {
       'id_type': idType,
       'id_format': idFormat,
     };
+  }
+
+  static double _toDouble(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString()) ?? 0;
   }
 }
