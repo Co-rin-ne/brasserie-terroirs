@@ -65,21 +65,21 @@ export default function MaSelection() {
             <tbody>
               {items.map(item => (
                 <tr key={item.id}>
-                  <td>
+                  <td data-label="Photo">
                     {item.image_url && <img src={item.image_url} alt={item.nom} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }} />}
                   </td>
-                  <td><strong>{item.nom}</strong></td>
-                  <td>{item.format_libelle}</td>
-                  <td>{Number(item.prix).toFixed(2)} €</td>
-                  <td>
+                  <td data-label="Produit"><strong>{item.nom}</strong></td>
+                  <td data-label="Format">{item.format_libelle}</td>
+                  <td data-label="Prix unit.">{Number(item.prix).toFixed(2)} €</td>
+                  <td data-label="Quantité">
                     <div className="qty-control">
                       <button onClick={() => modifierQuantite(item.id, item.quantite - 1)}>−</button>
                       <span>{item.quantite}</span>
                       <button onClick={() => modifierQuantite(item.id, item.quantite + 1)}>+</button>
                     </div>
                   </td>
-                  <td>{Number(item.sous_total).toFixed(2)} €</td>
-                  <td>
+                  <td data-label="Sous-total">{Number(item.sous_total).toFixed(2)} €</td>
+                  <td data-label="Action">
                     <button className="btn-delete" onClick={() => supprimer(item.id)}>Retirer</button>
                   </td>
                 </tr>

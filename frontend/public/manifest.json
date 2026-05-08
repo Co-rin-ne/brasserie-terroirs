@@ -1,0 +1,25 @@
+{
+  "name": "Brasserie Terroir & Savoirs",
+  "short_name": "Brasserie T&S",
+  "description": "Catalogue et réservation Brasserie T&S",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a3a2a",
+  "theme_color": "#1a3a2a",
+  "orientation": "portrait",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
