@@ -3,7 +3,7 @@ import { clientsApi as utilisateursApi } from '../services/api';
 
 export default function Utilisateurs() {
   const [users, setUsers] = useState([]);
-  const [form, setForm] = useState({ email: '', mot_de_passe: '', confirmation: '' });
+  const [form, setForm] = useState({ nom: '', email: '', mot_de_passe: '', confirmation: '' });
   const [erreur, setErreur] = useState('');
   const [succes, setSucces] = useState('');
 
@@ -29,19 +29,20 @@ export default function Utilisateurs() {
 
     try {
       await utilisateursApi.create({
+        nom: form.nom,
         email: form.email,
         mot_de_passe: form.mot_de_passe,
       });
-      setSucces(`Administrateur "${form.email}" créé avec succès`);
-      setForm({ email: '', mot_de_passe: '', confirmation: '' });
+      setSucces(`Client "${form.nom}" créé avec succès`);
+      setForm({ nom: '', email: '', mot_de_passe: '', confirmation: '' });
       charger();
     } catch (e) {
       setErreur(e.message);
     }
   }
 
-  async function handleDelete(id, email) {
-    if (!confirm(`Supprimer l'admin "${email}" ?`)) return;
+  async function handleDelete(id, nom) {
+    if (!confirm(`Supprimer le client "${nom}" ?`)) return;
     setErreur('');
     try {
       await utilisateursApi.delete(id);
@@ -53,10 +54,18 @@ export default function Utilisateurs() {
 
   return (
     <div className="page">
-      <h2>Administrateurs</h2>
+      <h2>Clients</h2>
 
       <form className="form-card" onSubmit={handleSubmit}>
-        <h3>Nouvel administrateur</h3>
+        <h3>Nouveau client</h3>
+
+        <label>Nom *</label>
+        <input
+          type="text"
+          value={form.nom}
+          onChange={e => setForm({ ...form, nom: e.target.value })}
+          required
+        />
 
         <label>Email *</label>
         <input
@@ -87,7 +96,7 @@ export default function Utilisateurs() {
         {succes && <p className="succes">{succes}</p>}
 
         <div className="form-actions">
-          <button type="submit">Créer l'administrateur</button>
+          <button type="submit">Créer le client</button>
         </div>
       </form>
 
@@ -95,6 +104,7 @@ export default function Utilisateurs() {
         <thead>
           <tr>
             <th>ID</th>
+            <th>Nom</th>
             <th>Email</th>
             <th>Action</th>
           </tr>
@@ -102,10 +112,11 @@ export default function Utilisateurs() {
         <tbody>
           {users.map(u => (
             <tr key={u.id}>
-              <td>{u.id}</td>
-              <td>{u.email}</td>
-              <td>
-                <button className="btn-delete" onClick={() => handleDelete(u.id, u.email)}>
+              <td data-label="ID">{u.id}</td>
+              <td data-label="Nom">{u.nom}</td>
+              <td data-label="Email">{u.email}</td>
+              <td data-label="Action">
+                <button className="btn-delete" onClick={() => handleDelete(u.id, u.nom)}>
                   Supprimer
                 </button>
               </td>
