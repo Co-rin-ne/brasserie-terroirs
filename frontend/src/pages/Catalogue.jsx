@@ -36,6 +36,11 @@ export default function Catalogue() {
       <div className="catalogue-grid">
         {produits.map(p => (
           <div key={p.id} className="carte-produit">
+            {/* Badge promo en haut à droite de l'image */}
+            {p.pourcentage > 0 && (
+              <span className="badge-promo">−{p.pourcentage}%</span>
+            )}
+
             {p.image_url
               ? <img src={p.image_url} alt={p.nom} />
               : <div style={{ height: 180, background: '#e8f4eb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>Pas d'image</div>
@@ -44,10 +49,28 @@ export default function Catalogue() {
               <span className="carte-type">{p.type_nom}</span>
               <h3>{p.nom}</h3>
               <p className="carte-description">{p.description}</p>
+
               <div className="carte-footer">
-                <span className="carte-prix">{Number(p.prix).toFixed(2)} €</span>
+                {p.pourcentage > 0 ? (
+                  <div>
+                    <span style={{ textDecoration: 'line-through', color: '#999', marginRight: '0.5rem', fontSize: '0.9rem' }}>
+                      {Number(p.prix).toFixed(2)} €
+                    </span>
+                    <span className="carte-prix" style={{ color: '#e53e3e' }}>
+                      {Number(p.prix_reduit).toFixed(2)} €
+                    </span>
+                  </div>
+                ) : (
+                  <span className="carte-prix">{Number(p.prix).toFixed(2)} €</span>
+                )}
                 <span className="carte-format">{p.format_libelle}</span>
               </div>
+
+              {p.promo_libelle && (
+                <p style={{ fontSize: '0.75rem', color: '#e53e3e', fontWeight: 600, marginTop: '0.25rem' }}>
+                  🏷️ {p.promo_libelle}
+                </p>
+              )}
 
               {p.quantite_stock > 0 ? (
                 <>

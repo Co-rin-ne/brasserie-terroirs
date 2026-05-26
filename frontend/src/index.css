@@ -231,6 +231,22 @@ tr:hover td { background: #f9fafb; }
   box-shadow: 0 1px 4px rgba(0,0,0,0.08);
   display: flex;
   flex-direction: column;
+  position: relative;  /* Pour positionner le badge promo */
+}
+
+/* Badge promotion */
+.badge-promo {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: #e53e3e;
+  color: #fff;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  z-index: 10;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
 }
 
 .carte-produit img {
