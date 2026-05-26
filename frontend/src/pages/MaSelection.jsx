@@ -36,7 +36,15 @@ export default function MaSelection() {
     }
   }
 
+  // Total avec réduction (utilise sous_total = prix_reduit × quantite)
   const total = items.reduce((s, i) => s + i.sous_total, 0);
+
+  // Total SANS réduction (prix original × quantite)
+  const totalSansReduction = items.reduce((s, i) => s + (Number(i.prix) * i.quantite), 0);
+
+  // Économies réalisées
+  const economies = totalSansReduction - total;
+  const yAUneReduction = economies > 0.01;  // tolérance virgule flottante
 
   return (
     <div className="page">
@@ -89,7 +97,27 @@ export default function MaSelection() {
 
           <div className="selection-footer">
             <div className="selection-total">
-              Total : <strong>{total.toFixed(2)} €</strong>
+              {yAUneReduction ? (
+                <>
+                  <div style={{ fontSize: '1rem', color: '#888' }}>
+                    Total :{' '}
+                    <span style={{ textDecoration: 'line-through' }}>
+                      {totalSansReduction.toFixed(2)} €
+                    </span>
+                  </div>
+                  <div style={{ fontSize: '1.3rem', marginTop: '0.25rem' }}>
+                    Total réduit :{' '}
+                    <strong style={{ color: '#e53e3e' }}>
+                      {total.toFixed(2)} €
+                    </strong>
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: '#2e6b44', marginTop: '0.25rem' }}>
+                    💰 Vous économisez {economies.toFixed(2)} €
+                  </div>
+                </>
+              ) : (
+                <>Total : <strong>{total.toFixed(2)} €</strong></>
+              )}
             </div>
             <button className="btn-reserver" onClick={validerReservation}>
               Valider ma réservation
