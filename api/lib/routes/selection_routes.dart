@@ -19,11 +19,16 @@ Router selectionRouter() {
         s.id, s.quantite,
         p.id as id_produit, p.nom, p.prix, p.image_url,
         tp.nom as type_nom,
-        f.libelle as format_libelle
+        f.libelle as format_libelle,
+        promo.pourcentage,
+        promo.libelle AS promo_libelle
       FROM selections s
       JOIN produits p         ON p.id = s.id_produit
       JOIN types_produits tp  ON tp.id = p.id_type
       JOIN formats f          ON f.id  = p.id_format
+      LEFT JOIN promotions promo
+        ON promo.id_format = p.id_format
+        AND CURDATE() BETWEEN promo.date_debut AND promo.date_fin
       WHERE s.id_client = ?
       ORDER BY p.nom;
     ''', [idClient]);
@@ -33,6 +38,14 @@ Router selectionRouter() {
       final quantite = (r['quantite'] is int)
           ? r['quantite'] as int
           : int.tryParse(r['quantite']?.toString() ?? '0') ?? 0;
+
+      // ───── CALCUL PROMO ─────
+      final pourcentage = (r['pourcentage'] is int)
+          ? r['pourcentage'] as int
+          : int.tryParse(r['pourcentage']?.toString() ?? '0') ?? 0;
+      final prixReduit = prix * (1 - pourcentage / 100);
+      // ────────────────────────
+
       return {
         'id': r['id'],
         'quantite': quantite,
@@ -42,7 +55,10 @@ Router selectionRouter() {
         'image_url': r['image_url']?.toString(),
         'type_nom': r['type_nom']?.toString(),
         'format_libelle': r['format_libelle']?.toString(),
-        'sous_total': prix * quantite,
+        'pourcentage': pourcentage,
+        'prix_reduit': prixReduit,
+        'promo_libelle': r['promo_libelle']?.toString(),
+        'sous_total': prixReduit * quantite,
       };
     }).toList();
 
