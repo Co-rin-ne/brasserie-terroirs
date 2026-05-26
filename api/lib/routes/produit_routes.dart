@@ -16,26 +16,42 @@ Router produitRouter() {
 
   // GET /produits — liste avec jointures pour avoir les noms (pas juste les ids)
   router.get('/', (Request req) async {
-    // On joint les 3 tables pour retourner les infos complètes
     final rows = await db.query('''
       SELECT
         p.id, p.nom, p.description, p.quantite_stock, p.prix, p.image_url,
         p.id_type, tp.nom as type_nom,
-        p.id_format, f.libelle as format_libelle, f.contenance
+        p.id_format, f.libelle as format_libelle, f.contenance,
+        promo.pourcentage,
+        promo.libelle AS promo_libelle
       FROM produits p
       JOIN types_produits tp ON tp.id = p.id_type
       JOIN formats f         ON f.id  = p.id_format
+      LEFT JOIN promotions promo 
+        ON promo.id_format = p.id_format 
+        AND CURDATE() BETWEEN promo.date_debut AND promo.date_fin
       ORDER BY p.nom;
     ''');
 
-    final produits = rows.toMapList().map((r) {
-      final map = Produit.fromMap(r).toMap();
-      // On enrichit la réponse avec les noms (utile pour l'affichage React)
-      map['type_nom'] = r['type_nom'];
-      map['format_libelle'] = r['format_libelle'];
-      map['contenance'] = toDouble(r['contenance']);
-      return map;
-    }).toList();
+  final produits = rows.toMapList().map((r) {
+    final map = Produit.fromMap(r).toMap();
+    map['type_nom'] = r['type_nom'];
+    map['format_libelle'] = r['format_libelle'];
+    map['contenance'] = toDouble(r['contenance']);
+
+    // ───── CALCUL DE LA PROMOTION ─────
+    final prix = toDouble(r['prix']);
+    final pourcentage = (r['pourcentage'] is int)
+        ? r['pourcentage'] as int
+        : int.tryParse(r['pourcentage']?.toString() ?? '0') ?? 0;
+    final prixReduit = prix * (1 - pourcentage / 100);
+
+    map['pourcentage'] = pourcentage;
+    map['prix_reduit'] = prixReduit;
+    map['promo_libelle'] = r['promo_libelle']?.toString();
+    // ───────────────────────────────────
+
+    return map;
+  }).toList();
 
     return Response.ok(
       jsonEncode(produits),
@@ -49,10 +65,15 @@ Router produitRouter() {
       SELECT
         p.id, p.nom, p.description, p.quantite_stock, p.prix, p.image_url,
         p.id_type, tp.nom as type_nom,
-        p.id_format, f.libelle as format_libelle, f.contenance
+        p.id_format, f.libelle as format_libelle, f.contenance,
+        promo.pourcentage,
+        promo.libelle AS promo_libelle
       FROM produits p
       JOIN types_produits tp ON tp.id = p.id_type
       JOIN formats f         ON f.id  = p.id_format
+      LEFT JOIN promotions promo 
+        ON promo.id_format = p.id_format 
+        AND CURDATE() BETWEEN promo.date_debut AND promo.date_fin
       WHERE p.id = ?;
     ''', [int.parse(id)]);
 

@@ -96,6 +96,17 @@ void main() async {
     );
   ''');
 
+  await db.query('''
+    CREATE TABLE IF NOT EXISTS promotions (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      libelle VARCHAR(255) NOT NULL,
+      pourcentage INT NOT NULL,
+      id_format INT NULL,
+      actif TINYINT(1) NOT NULL DEFAULT 1,
+      FOREIGN KEY (id_format) REFERENCES formats(id) ON DELETE CASCADE
+    );
+  ''');
+
   // ── Nettoyage ─────────────────────────────────────────────────────────────
   print('Nettoyage des tables...');
   await db.query('DELETE FROM lignes_commande;');

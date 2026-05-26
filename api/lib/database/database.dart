@@ -107,6 +107,21 @@ class AppDatabase {
         FOREIGN KEY (id_produit) REFERENCES produits(id)
       );
     ''');
+
+    // ─── Table promotions ─────────────────────────────────────────────────
+    // pourcentage : ex 10 = -10%
+    // id_format NULL  → s'applique à tous les produits
+    // id_format défini → s'applique uniquement aux produits de ce format
+    await _conn.query('''
+      CREATE TABLE IF NOT EXISTS promotions (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        libelle VARCHAR(255) NOT NULL,
+        pourcentage INT NOT NULL,
+        id_format INT NULL,
+        actif TINYINT(1) NOT NULL DEFAULT 1,
+        FOREIGN KEY (id_format) REFERENCES formats(id) ON DELETE CASCADE
+      );
+    ''');
   }
 }
 
